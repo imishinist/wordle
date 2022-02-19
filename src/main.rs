@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader, BufWriter, Read, stdout, Write};
 
 use clap::{Parser, Subcommand};
 
@@ -291,10 +291,14 @@ fn main() -> std::io::Result<()> {
 
             let file = File::open(dict_path)?;
             let lines = BufReader::new(file).lines();
+
+            let out = stdout();
+            let mut out = BufWriter::new(out.lock());
             for line in lines {
                 match line {
                     Ok(line) if filter.accept(line.to_lowercase().as_str()) => {
-                        println!("{}", line);
+                        out.write(line.as_bytes())?;
+                        out.write(b"\n")?;
                     }
                     _ => continue,
                 }
@@ -310,8 +314,10 @@ fn main() -> std::io::Result<()> {
                 char_freq.add_char(c);
             }
 
+            let out = stdout();
+            let mut out = BufWriter::new(out.lock());
             for (c, count) in char_freq.to_vec() {
-                println!("{}:{}", c, count);
+                out.write(format!("{}:{}\n", c, count).as_bytes())?;
             }
         }
     }
