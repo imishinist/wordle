@@ -431,36 +431,40 @@ fn main() -> std::io::Result<()> {
 
             let out = stdout();
             let mut out = BufWriter::new(out.lock());
-            if score_sort.is_some() {
-                let char_freq = CharFreq::from_file(char_freq_path);
-                let mut k = score_sort.unwrap_or_else(|| 100) as isize;
 
-                let mut heap = BinaryHeap::with_capacity(k as usize);
-                for line in lines {
-                    match line {
-                        Ok(line) if filter.accept(line.to_lowercase().as_str()) => {
-                            heap.push(WordScore::new(line, &char_freq));
+            match score_sort {
+                Some(k) => {
+                    let char_freq = CharFreq::from_file(char_freq_path);
+                    let mut k = *k as isize;
+
+                    let mut heap = BinaryHeap::with_capacity(k as usize);
+                    for line in lines {
+                        match line {
+                            Ok(line) if filter.accept(line.to_lowercase().as_str()) => {
+                                heap.push(WordScore::new(line, &char_freq));
+                            }
+                            _ => continue,
                         }
-                        _ => continue,
+                    }
+
+                    while let Some(ws) = heap.pop() {
+                        if k <= 0 {
+                            break;
+                        }
+                        k -= 1;
+
+                        println!("{}", ws.word);
                     }
                 }
-
-                while let Some(ws) = heap.pop() {
-                    if k <= 0 {
-                        break;
-                    }
-                    k -= 1;
-
-                    println!("{}", ws.word);
-                }
-            } else {
-                for line in lines {
-                    match line {
-                        Ok(line) if filter.accept(line.to_lowercase().as_str()) => {
-                            out.write_all(line.as_bytes())?;
-                            out.write_all(b"\n")?;
+                None => {
+                    for line in lines {
+                        match line {
+                            Ok(line) if filter.accept(line.to_lowercase().as_str()) => {
+                                out.write_all(line.as_bytes())?;
+                                out.write_all(b"\n")?;
+                            }
+                            _ => continue,
                         }
-                        _ => continue,
                     }
                 }
             }
