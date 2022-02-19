@@ -1,5 +1,5 @@
 use bit_set::BitSet;
-use std::cmp::Ordering;
+use std::cmp::{Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap};
 use std::env;
 use std::fs::File;
@@ -435,25 +435,23 @@ fn main() -> std::io::Result<()> {
             match score_sort {
                 Some(k) => {
                     let char_freq = CharFreq::from_file(char_freq_path);
-                    let mut k = *k as isize;
 
-                    let mut heap = BinaryHeap::with_capacity(k as usize);
+                    let mut heap = BinaryHeap::with_capacity(*k + 1);
                     for line in lines {
                         match line {
                             Ok(line) if filter.accept(line.to_lowercase().as_str()) => {
-                                heap.push(WordScore::new(line, &char_freq));
+                                heap.push(Reverse(WordScore::new(line, &char_freq)));
+                                if heap.len() > *k {
+                                    heap.pop();
+                                }
                             }
                             _ => continue,
                         }
                     }
 
-                    while let Some(ws) = heap.pop() {
-                        if k <= 0 {
-                            break;
-                        }
-                        k -= 1;
-
-                        println!("{}", ws.word);
+                    for x in heap.iter().rev() {
+                        out.write_all(x.0.word.as_bytes())?;
+                        out.write_all(b"\n")?;
                     }
                 }
                 None => {
