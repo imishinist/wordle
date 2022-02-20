@@ -156,8 +156,7 @@ mod tests {
         char_freq.add_char('-');
         assert_eq!(
             char_freq
-                .to_vec()
-                .into_iter()
+                .sorted_iter()
                 .filter(|(_, count)| *count > 0)
                 .collect::<Vec<(char, usize)>>(),
             vec![('a', 2), ('b', 1), ('c', 1),]
@@ -279,7 +278,7 @@ impl CharFreq {
     }
 
     #[inline]
-    fn to_vec(&self) -> Vec<(char, usize)> {
+    fn sorted_iter(&self) -> impl Iterator<Item = (char, usize)> + '_ {
         let mut v = self.inner.iter().enumerate().collect::<Vec<_>>();
         v.sort_by(|(c1, &count1), (c2, &count2)| {
             count1
@@ -288,9 +287,8 @@ impl CharFreq {
                 .reverse()
         });
 
-        v.iter()
-            .map(|(c, count)| ((*c as u8 + b'a') as char, **count))
-            .collect()
+        v.into_iter()
+            .map(|(c, &count)| ((c as u8 + b'a') as char, count))
     }
 
     fn from_file<P: AsRef<Path>>(path: P) -> Self {
@@ -503,7 +501,7 @@ fn main() -> std::io::Result<()> {
                 .write(true)
                 .open(char_freq_path)?;
             let mut out = BufWriter::new(out);
-            for (c, count) in char_freq.to_vec() {
+            for (c, count) in char_freq.sorted_iter() {
                 out.write_all(format!("{}:{}\n", c, count).as_bytes())?;
             }
         }
