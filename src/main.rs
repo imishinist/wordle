@@ -90,8 +90,7 @@ impl Filter {
 
 #[cfg(test)]
 mod tests {
-    use crate::{CharFreq, CharPosition, Filter, WordScore};
-    use std::collections::BinaryHeap;
+    use crate::{CharFreq, CharPosition, Filter, TopK, WordScore};
 
     #[test]
     fn filter_test() {
@@ -179,7 +178,7 @@ mod tests {
 
     #[test]
     fn word_score_order() {
-        let mut heap = BinaryHeap::new();
+        let mut topk = TopK::new(2);
 
         let mut char_freq = CharFreq::new();
         char_freq.add_char('a');
@@ -188,21 +187,21 @@ mod tests {
         char_freq.add_char('b');
         char_freq.add_char('c');
 
-        heap.push(WordScore::new("abc".to_string(), &char_freq));
-        heap.push(WordScore::new("cba".to_string(), &char_freq));
-        heap.push(WordScore::new("bcd".to_string(), &char_freq));
+        topk.push(WordScore::new("abc".to_string(), &char_freq));
+        topk.push(WordScore::new("cba".to_string(), &char_freq));
+        topk.push(WordScore::new("bcd".to_string(), &char_freq));
 
-        let ws = heap.pop().unwrap();
+        let words = topk.iter().collect::<Vec<_>>();
+
+        assert_eq!(words.len(), 2);
+
+        let ws = words.get(0).unwrap();
         assert_eq!(ws.score, 5);
         assert_eq!(ws.word, "abc".to_string());
-        let ws = heap.pop().unwrap();
+
+        let ws = words.get(1).unwrap();
         assert_eq!(ws.score, 5);
         assert_eq!(ws.word, "cba".to_string());
-        let ws = heap.pop().unwrap();
-        assert_eq!(ws.score, 2);
-        assert_eq!(ws.word, "bcd".to_string());
-
-        assert_eq!(heap.pop(), None);
     }
 }
 
@@ -368,6 +367,31 @@ impl<'a> Ord for WordScore<'a> {
     }
 }
 
+struct TopK<T: Ord> {
+    heap: BinaryHeap<Reverse<T>>,
+    k: usize,
+}
+
+impl<T: Ord> TopK<T> {
+    fn new(k: usize) -> Self {
+        Self {
+            heap: BinaryHeap::with_capacity(k + 1),
+            k,
+        }
+    }
+
+    fn push(&mut self, item: T) {
+        self.heap.push(Reverse(item));
+        if self.heap.len() > self.k {
+            self.heap.pop();
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &T> + '_ {
+        self.heap.iter().rev().map(|w| &w.0)
+    }
+}
+
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 #[clap(propagate_version = true)]
@@ -436,21 +460,18 @@ fn main() -> std::io::Result<()> {
                 Some(k) => {
                     let char_freq = CharFreq::from_file(char_freq_path);
 
-                    let mut heap = BinaryHeap::with_capacity(*k + 1);
+                    let mut topk = TopK::new(*k);
                     for line in lines {
                         match line {
                             Ok(line) if filter.accept(line.to_lowercase().as_str()) => {
-                                heap.push(Reverse(WordScore::new(line, &char_freq)));
-                                if heap.len() > *k {
-                                    heap.pop();
-                                }
+                                topk.push(WordScore::new(line, &char_freq));
                             }
                             _ => continue,
                         }
                     }
 
-                    for x in heap.iter().rev() {
-                        out.write_all(x.0.word.as_bytes())?;
+                    for x in topk.iter() {
+                        out.write_all(x.word.as_bytes())?;
                         out.write_all(b"\n")?;
                     }
                 }
