@@ -400,18 +400,24 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// search words from dictionary file
     Grep {
+        /// correct word positions
         target: Option<String>,
 
+        /// not matched characters
         #[clap(short, long)]
         ignore_chars: Option<String>,
 
+        /// matched word, but incorrect positions
         #[clap(short, long)]
         different_positions: Option<Vec<String>>,
 
+        /// sort by character frequency and get top k
         #[clap(short, long)]
         score_sort: Option<usize>,
     },
+    /// analyse word dictionary for character frequency
     Analyse {},
 }
 
